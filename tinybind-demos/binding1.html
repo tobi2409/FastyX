@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <script src="tinybind/dist/tinybind.js"></script>
+  <title>Tinybind ohne Custom Components</title>
+</head>
+
+<body>
+  <div id="app">
+    <h1>Tiny application</h1>
+    <input rv-value="name" />
+    <div>Hello {name}</div>
+  </div>
+
+  <script>
+    const model = {
+      name: "Luiz"
+    };
+
+    const app = document.getElementById('app');
+    tinybind.bind(app, model);
+  </script>
+</body>
+
+</html>

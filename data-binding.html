@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Mini Data-Binding Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; }
+    /*ul { list-style: none; padding: 0; }
+    li { margin: 0.5rem 0; }*/
+    button { margin-top: 1rem; padding: 0.5rem 1rem; }
+  </style>
+</head>
+<body>
+
+<div id="headline">
+    <input id="name" value="{{ name }}">
+    <h1>Willkommen, {{ name }}!</h1>
+
+  <!-- IF-Direktive -->
+  <if test="showTitle">
+    <h1>Willkommen, {{ name }}!</h1>
+  </if>
+</div>
+
+<div id="main">
+  <!-- EACH-Direktive -->
+  <ul>
+    <each of="items">
+      <li>{{ name }} ({{ age }} Jahre)</li>
+      <ul>
+            <each of="items">
+                <li>{{ name }}</li>
+            </each>
+        </ul>
+    </each>
+  </ul>
+
+  <button id="push">Push</button>
+  <button id="pop">Pop</button>
+
+  <button id="toggle">Titel umschalten</button>
+</div>
+
+<script>
+  // -----------------------------
+  // Mini-Reaktivität
+  // -----------------------------
+  function reactive(obj, callback) {
+    return new Proxy(obj, {
+      get(target, prop) {
+        const value = target[prop];
+        if (value && typeof value === 'object') return reactive(value, callback);
+        return value;
+      },
+      set(target, prop, value) {
+        target[prop] = value;
+        callback();
+        return true;
+      }
+    });
+  }
+
+  // -----------------------------
+  // Allgemeine Template-Ersetzung
+  // -----------------------------
+  function replaceTemplateStrings(root, model) {
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT + NodeFilter.SHOW_ELEMENT,
+      null,
+      false
+    );
+
+    let node;
+    while (node = walker.nextNode()) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        node.textContent = node.textContent.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => model[key] ?? '');
+      } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'INPUT') {
+        // nur Input-Elemente mit value ersetzen
+        node.value = node.value.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => model[key] ?? '');
+      }
+    }
+  }
+
+  function getDirectInnerText(el) {
+    return Array.from(el.childNodes)
+      .filter(node => node.nodeType === Node.TEXT_NODE)
+      .map(node => node.textContent.trim())
+      .join("");
+  }
+
+
+  // -----------------------------
+  // Renderer für <if> und <each>
+  // -----------------------------
+
+  function each(root, model) {
+    //
+  }
+
+  function render(root, model) {
+    let result = []
+
+    const elements = root.querySelectorAll(':scope > *')
+
+    elements.forEach(function (e) {
+      const parent = e.parentNode
+
+      if (e.tagName === 'EACH') {
+        const arrayName = e.getAttribute('of')
+        const items = model[arrayName]
+
+        templateElements = e.querySelectorAll(':scope > *')
+
+        items.forEach(item => {
+            templateElements.forEach(te => {
+                //TODO: kein deep-clone
+                const clone = te.cloneNode(false);
+                clone.dataset.cloned = true;
+                clone.innerText = getDirectInnerText(te);
+                //console.log(te.innerText)
+                //replaceTemplateStrings(clone, item)
+                //TODO: hier darf nur auf erster Ebene ersetzt werden
+                clone.innerHTML = clone.innerHTML.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => item[key]);
+                result.push(clone)
+                //parent.insertBefore(clone, e);
+                //render(clone, model)
+            })
+        })
+
+        //parent.insertBefore(e, render(e, model))
+        //result = result.concat(render(e, model))
+      }
+
+      result = result.concat(render(e, model))
+    })
+
+    return result
+  }
+
+  /*function render(root, model) {
+    const elements = root.querySelectorAll(':scope > *')
+    //console.log(eachControlStructures)
+
+    elements.forEach(function (e) {
+        if (e.tagName === 'EACH') {
+            const arrayName = e.getAttribute('of');
+            const items = model[arrayName];
+            const parent = e.parentNode;
+
+            //TODO: Vorherige gerenderte Elemente entfernen
+            oldClonedElements = parent.querySelectorAll('[data-cloned="true"]');
+            oldClonedElements.forEach(oCE => {
+                oCE.remove();
+            })
+
+            // Neue Elemente erstellen
+            templateElements = e.querySelectorAll(':scope > *');
+            //render(eachControlStructure, model)
+
+            // es kann mehrere templateElements geben (das ist sinnvoll bspw. bei mehreren li-Elementen)
+            // es belastet auch nicht die Performance, da alternativ mehrere einzelne Elements gewrappt worden wären, die durch Deep-Clone ebenso mitgenommen worden wären
+            items.forEach(item => {
+                templateElements.forEach(te => {
+                    //TODO: kein deep-clone
+                    const clone = te.cloneNode(false);
+                    clone.dataset.cloned = true;
+                    clone.innerText = getDirectInnerText(te);
+                    //console.log(te.innerText)
+                    //replaceTemplateStrings(clone, item)
+                    //TODO: hier darf nur auf erster Ebene ersetzt werden
+                    clone.innerHTML = clone.innerHTML.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => item[key]);
+                    parent.insertBefore(clone, e);
+                    render(clone, model)
+                })
+            });
+
+            //render(te, model)
+
+            // Original-Tag verstecken
+            e.style.display = 'none';
+        }
+
+        render(e, model)
+    })*/
+
+    /*const ifControlStructures = root.querySelectorAll(':scope > if')
+
+    ifControlStructures.forEach(function (iCS) {
+        const condition = model[ifControlStructure.getAttribute('test')];
+        iCS.style.display = condition ? '' : 'none';
+        //node.innerHTML = node.innerHTML.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => model[key]);
+    })*/
+
+    //const
+
+    // DEEP
+
+    //replaceTemplateStrings(root, model)
+  //}
+
+  // -----------------------------
+  // Datenmodell
+  // -----------------------------
+  /*const headlineModel = reactive({
+    showTitle: true,
+    name: 'Tobias'
+  }, () => render(document.getElementById('headline'), headlineModel));*/
+
+  /*const mainModel = reactive({
+    items: [
+      { name: 'Alice', age: 25, children: [ { name: 'Alice_1', age: 10, children: [ { name: 'Alice_1_1', age: 5 } ] } ] },
+      { name: 'Bob', age: 30 },
+      { name: 'Charlie', age: 20, children: [ { name: 'Charlie_1', age: 5 } ] }
+    ]
+  }, () => render(document.getElementById('main'), mainModel));*/
+
+  const mainModel = {
+    items: [
+      { name: 'Alice', age: 25, children: [ { name: 'Alice_1', age: 10, children: [ { name: 'Alice_1_1', age: 5 } ] } ] },
+      { name: 'Bob', age: 30 },
+      { name: 'Charlie', age: 20, children: [ { name: 'Charlie_1', age: 5 } ] }
+    ]
+  }
+
+  // -----------------------------
+  // Initiales Rendering
+  // -----------------------------
+  //render(document.getElementById('headline'), headlineModel);
+  console.log(render(document.getElementById('main'), mainModel))
+
+  // -----------------------------
+  // Interaktion
+  // -----------------------------
+
+  document.getElementById('toggle').addEventListener('click', () => {
+    headlineModel.showTitle = !headlineModel.showTitle;
+  });
+
+  document.getElementById('name').addEventListener('input', e => {
+    headlineModel.name = e.target.value;
+    console.log(headlineModel.name)
+  });
+
+
+  document.getElementById('push').addEventListener('click', () => {
+    mainModel.items.push({'name': 'Tobias', 'age': 30})
+  });
+
+  document.getElementById('pop').addEventListener('click', () => {
+    mainModel.items.pop()
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <script src="tinybind/dist/tinybind.js"></script>
+  <title>Dynamic List - Nested Each</title>
+</head>
+
+<body>
+  <div id="test">
+    <button onclick="push()">Push</button>
+    <button onclick="pop()" rv-enabled="entries.length">Pop</button>
+
+    <div id="item-list">
+      <ul rv-each-entry="entries">
+        <li>
+          Entry {$index} / {entry.name}
+          <ul rv-each-child="entry.children">
+            <li>Child {$index} / {child.name}</li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    function getentries() {
+      return [
+        { name: 'x', value: 2, children: [{ name: 'x1' }, { name: 'x2' }] },
+        { name: 'y', value: 1, children: [{ name: 'y1' }] },
+        { name: 'z', value: 3, children: [] }
+      ];
+    }
+
+    var model = {
+      entries: getentries()
+    };
+
+    // Tinybind initial binden
+    var container = document.getElementById('test');
+    tinybind.bind(container, model);
+
+    // Klick-Handler als normale Funktionen
+    function push() {
+      model.entries.push({
+        name: 'pushed',
+        children: [{ name: 'pushed-1' }, { name: 'pushed-2' }]
+      });
+    }
+
+    function pop() {
+      model.entries.pop();
+    }
+  </script>
+</body>
+</html>
