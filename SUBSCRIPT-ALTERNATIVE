@@ -1,0 +1,1 @@
+Statt SubScript wird einfach im Model Variable angelegt mit komplexem Bool-Ausdruck. Dieser wird einfach beim if-test verwendet
