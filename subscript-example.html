@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subscript Beispiel</title>
+</head>
+<body>
+  <h1>Subscript im Browser</h1>
+  <div>
+    <p>Ergebnis: <span id="result"></span></p>
+  </div>
+
+  <!-- Subscript von GitHub (oder eigener Pfad zu subscript.min.js) -->
+  <script type="module" src="https://github.com/dy/subscript/blob/main/subscript.min.js"></script>
+
+  <script>
+    // Ein Subscript-Ausdruck
+    const expression = 'a.b + Math.sqrt(c - 1)';
+
+    // Subscript-Funktion erstellen
+    const fn = subscript(expression);
+
+    // Werteobjekt
+    const data = {
+      a: { b: 5 },
+      c: 10,
+      Math: Math // Math muss übergeben werden
+    };
+
+    // Ausdruck auswerten
+    const result = fn(data);
+
+    // Ergebnis im HTML anzeigen
+    document.getElementById('result').textContent = result;
+  </script>
+</body>
+</html>

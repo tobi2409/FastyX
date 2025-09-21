@@ -17,7 +17,7 @@
     <h1>Willkommen, {{ name }}!</h1>
 
   <!-- IF-Direktive -->
-  <if test="showTitle">
+  <if test="showTitle" color="blue">
     <h1>Willkommen, {{ name }}!</h1>
   </if>
 </div>
@@ -25,13 +25,15 @@
 <div id="main">
   <!-- EACH-Direktive -->
   <ul>
-    <each of="items">
-      <li>{{ name }} ({{ age }} Jahre)</li>
+
+    <each of="items" as="item">
+      <li>{{ item.name }} ({{ item.age }} Jahre)</li>
       <ul>
-            <each of="items">
-                <li>{{ name }}</li>
-            </each>
-        </ul>
+        <div>TEST</div>
+        <each of="item.children" as="child">
+            <li>{{ child.name }}</li>
+        </each>
+      </ul>
     </each>
   </ul>
 
@@ -42,6 +44,7 @@
 </div>
 
 <script>
+
   // -----------------------------
   // Mini-Reaktivität
   // -----------------------------
@@ -60,28 +63,6 @@
     });
   }
 
-  // -----------------------------
-  // Allgemeine Template-Ersetzung
-  // -----------------------------
-  function replaceTemplateStrings(root, model) {
-    const walker = document.createTreeWalker(
-      root,
-      NodeFilter.SHOW_TEXT + NodeFilter.SHOW_ELEMENT,
-      null,
-      false
-    );
-
-    let node;
-    while (node = walker.nextNode()) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        node.textContent = node.textContent.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => model[key] ?? '');
-      } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'INPUT') {
-        // nur Input-Elemente mit value ersetzen
-        node.value = node.value.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => model[key] ?? '');
-      }
-    }
-  }
-
   function getDirectInnerText(el) {
     return Array.from(el.childNodes)
       .filter(node => node.nodeType === Node.TEXT_NODE)
@@ -94,140 +75,110 @@
   // Renderer für <if> und <each>
   // -----------------------------
 
-  function each(root, model) {
-    //
+function expandEachTag(eachElement, model, context = {}) {
+  const arrayName = eachElement.getAttribute('of');   // z.B. "items" oder "item.children"
+  const asName = eachElement.getAttribute('as') || 'item'; // Standardname "item"
+
+  // Array auswerten (Pfad im Kontext/Model auflösen)
+  const items = resolvePath(arrayName, model, context) || [];
+  const results = [];
+
+  items.forEach(item => {
+    const newContext = { ...context, [asName]: item }; // Kontext erweitern
+    const children = expandChildren(eachElement, model, newContext);
+    results.push(...children);
+  });
+
+  return results;
+}
+
+function expandTemplate(templateElement, model, context = {}) {
+  if (templateElement.tagName === 'EACH') {
+    return expandEachTag(templateElement, model, context);
   }
 
-  function render(root, model) {
-    let result = []
+  // normales DOM-Element erzeugen
+  const newEl = document.createElement(templateElement.tagName);
 
-    const elements = root.querySelectorAll(':scope > *')
-
-    elements.forEach(function (e) {
-      const parent = e.parentNode
-
-      if (e.tagName === 'EACH') {
-        const arrayName = e.getAttribute('of')
-        const items = model[arrayName]
-
-        templateElements = e.querySelectorAll(':scope > *')
-
-        items.forEach(item => {
-            templateElements.forEach(te => {
-                //TODO: kein deep-clone
-                const clone = te.cloneNode(false);
-                clone.dataset.cloned = true;
-                clone.innerText = getDirectInnerText(te);
-                //console.log(te.innerText)
-                //replaceTemplateStrings(clone, item)
-                //TODO: hier darf nur auf erster Ebene ersetzt werden
-                clone.innerHTML = clone.innerHTML.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => item[key]);
-                result.push(clone)
-                //parent.insertBefore(clone, e);
-                //render(clone, model)
-            })
-        })
-
-        //parent.insertBefore(e, render(e, model))
-        //result = result.concat(render(e, model))
+  // direkten Text des Template-Elements holen und Platzhalter ersetzen
+  const directInnerText = getDirectInnerText(templateElement);
+  if (directInnerText) {
+    newEl.innerText = directInnerText.replace(
+      /\{\{\s*([\w.-]+)\s*\}\}/g,
+      (_, key) => {
+        const value = resolvePath(key, model, context);
+        return value !== undefined ? value : "";
       }
-
-      result = result.concat(render(e, model))
-    })
-
-    return result
+    );
   }
 
-  /*function render(root, model) {
-    const elements = root.querySelectorAll(':scope > *')
-    //console.log(eachControlStructures)
+  newEl.dataset.cloned = true;
 
-    elements.forEach(function (e) {
-        if (e.tagName === 'EACH') {
-            const arrayName = e.getAttribute('of');
-            const items = model[arrayName];
-            const parent = e.parentNode;
+  // Kinder expandieren
+  const children = expandChildren(templateElement, model, context);
+  children.forEach(c => newEl.appendChild(c));
 
-            //TODO: Vorherige gerenderte Elemente entfernen
-            oldClonedElements = parent.querySelectorAll('[data-cloned="true"]');
-            oldClonedElements.forEach(oCE => {
-                oCE.remove();
-            })
+  return [newEl];
+}
 
-            // Neue Elemente erstellen
-            templateElements = e.querySelectorAll(':scope > *');
-            //render(eachControlStructure, model)
+function expandChildren(parentTemplate, model, context = {}) {
+  const results = [];
+  const childTemplates = parentTemplate.querySelectorAll(':scope > *');
 
-            // es kann mehrere templateElements geben (das ist sinnvoll bspw. bei mehreren li-Elementen)
-            // es belastet auch nicht die Performance, da alternativ mehrere einzelne Elements gewrappt worden wären, die durch Deep-Clone ebenso mitgenommen worden wären
-            items.forEach(item => {
-                templateElements.forEach(te => {
-                    //TODO: kein deep-clone
-                    const clone = te.cloneNode(false);
-                    clone.dataset.cloned = true;
-                    clone.innerText = getDirectInnerText(te);
-                    //console.log(te.innerText)
-                    //replaceTemplateStrings(clone, item)
-                    //TODO: hier darf nur auf erster Ebene ersetzt werden
-                    clone.innerHTML = clone.innerHTML.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => item[key]);
-                    parent.insertBefore(clone, e);
-                    render(clone, model)
-                })
-            });
+  childTemplates.forEach(childTemplate => {
+    const expanded = expandTemplate(childTemplate, model, context);
+    results.push(...expanded);
+  });
 
-            //render(te, model)
+  return results;
+}
 
-            // Original-Tag verstecken
-            e.style.display = 'none';
-        }
+function render(root, model) {
+  const rootChildren = root.querySelectorAll(':scope > *');
 
-        render(e, model)
-    })*/
+  rootChildren.forEach(child => {
+    const parent = child.parentNode;
 
-    /*const ifControlStructures = root.querySelectorAll(':scope > if')
+    if (child.tagName === 'EACH') {
+      const oldClonedElements = parent.querySelectorAll('[data-cloned="true"]');
+      oldClonedElements.forEach(oCE => oCE.remove());
 
-    ifControlStructures.forEach(function (iCS) {
-        const condition = model[ifControlStructure.getAttribute('test')];
-        iCS.style.display = condition ? '' : 'none';
-        //node.innerHTML = node.innerHTML.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => model[key]);
-    })*/
+      const expanded = expandEachTag(child, model);
 
-    //const
+      expanded.forEach(el => parent.insertBefore(el, child));
+      child.style.display = 'none';
+    } else {
+      render(child, model);
+    }
+  });
+}
 
-    // DEEP
+// Hilfsfunktion: löst "item.children" oder "modelKey.subKey" im Kontext/Model auf
+function resolvePath(path, model, context) {
+  const parts = path.split('.');
+  let current = context.hasOwnProperty(parts[0]) ? context[parts[0]] : model[parts[0]];
 
-    //replaceTemplateStrings(root, model)
-  //}
+  for (let i = 1; i < parts.length; i++) {
+    if (current == null) return undefined;
+    current = current[parts[i]];
+  }
+  return current;
+}
 
-  // -----------------------------
-  // Datenmodell
-  // -----------------------------
-  /*const headlineModel = reactive({
-    showTitle: true,
-    name: 'Tobias'
-  }, () => render(document.getElementById('headline'), headlineModel));*/
 
-  /*const mainModel = reactive({
+  const mainModel = reactive({
     items: [
       { name: 'Alice', age: 25, children: [ { name: 'Alice_1', age: 10, children: [ { name: 'Alice_1_1', age: 5 } ] } ] },
       { name: 'Bob', age: 30 },
       { name: 'Charlie', age: 20, children: [ { name: 'Charlie_1', age: 5 } ] }
     ]
-  }, () => render(document.getElementById('main'), mainModel));*/
-
-  const mainModel = {
-    items: [
-      { name: 'Alice', age: 25, children: [ { name: 'Alice_1', age: 10, children: [ { name: 'Alice_1_1', age: 5 } ] } ] },
-      { name: 'Bob', age: 30 },
-      { name: 'Charlie', age: 20, children: [ { name: 'Charlie_1', age: 5 } ] }
-    ]
-  }
+  }, () => render(document.getElementById('main'), mainModel))
 
   // -----------------------------
   // Initiales Rendering
   // -----------------------------
   //render(document.getElementById('headline'), headlineModel);
-  console.log(render(document.getElementById('main'), mainModel))
+  render(document.getElementById('main'), mainModel)
 
   // -----------------------------
   // Interaktion
