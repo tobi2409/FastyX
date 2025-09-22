@@ -29,7 +29,7 @@
 
 <div id="main">
   <!-- EACH-Direktive -->
-  <!--<ul>
+  <ul>
     <each of="items" as="item">
       <li style="background-color: {{ liBackground }}">{{ item.name }} ({{ item.age }} Jahre)</li>
       <ul>
@@ -39,21 +39,16 @@
         </each>
       </ul>
     </each>
-  </ul>-->
+  </ul>
 
-  <recursive-template name="rec1">
+  <!--<recursive-template name="rec1" of="items">
     <ul>
-      <each of="items" as="item" deep-structure="item.children">
+      <each of="{{ #rec1.of# }}" as="item">
         <li style="background-color: {{ liBackground }}">{{ item.name }} ({{ item.age }} Jahre)</li>
-        <ul>
-          <div>TEST</div>
-          <each of="item.children" as="child">
-              <li>{{ child.name }}</li>
-          </each>
-        </ul>
+        <recursive-template use="rec1" of="item.children"></recursive-template>
       </each>
     </ul>
-  </recursive-template>
+  </recursive-template>-->
 
   <button id="push">Push</button>
   <button id="pop">Pop</button>
