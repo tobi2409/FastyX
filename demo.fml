@@ -1,0 +1,6 @@
+<root>
+    <test-component title="Hallo Welt" color="lightgreen"></test-component>
+    <test-component title="Anderer Titel" color="salmon"></test-component>
+    <container name="container1" width="100" align="left"></container> <!-- Container ist JS-Komponente mit Div -->
+    <button name="button1" left="10" top="10" width="100" height="25" onclick="button1Click">Press me</button>
+</root>
