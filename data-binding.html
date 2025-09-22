@@ -14,12 +14,12 @@
 
 <div id="headline">
     <input id="name" value="{{ name }}">
-    <h1>Willkommen, {{ name }}!</h1>
+    <h1 style="background-color: {{ headlineBackground }};">Willkommen, {{ name }}!</h1>
     <p>Hallo {{ name }}</p>
 
   <!-- IF-Direktive -->
   <if test="showCondTitle">
-    <h1>bedingtes Willkommen, {{ name }}!</h1>
+    <h1 style="background-color: {{ headlineBackground }};">bedingtes Willkommen, {{ name }}!</h1>
 
     <if test="showCondTitle2">
       <h2>bedingtes Willkommen, {{ name }}!</h2>
@@ -29,10 +29,9 @@
 
 <div id="main">
   <!-- EACH-Direktive -->
-  <ul>
-
+  <!--<ul>
     <each of="items" as="item">
-      <li>{{ item.name }} ({{ item.age }} Jahre)</li>
+      <li style="background-color: {{ liBackground }}">{{ item.name }} ({{ item.age }} Jahre)</li>
       <ul>
         <div>TEST</div>
         <each of="item.children" as="child">
@@ -40,7 +39,21 @@
         </each>
       </ul>
     </each>
-  </ul>
+  </ul>-->
+
+  <recursive-template name="rec1">
+    <ul>
+      <each of="items" as="item" deep-structure="item.children">
+        <li style="background-color: {{ liBackground }}">{{ item.name }} ({{ item.age }} Jahre)</li>
+        <ul>
+          <div>TEST</div>
+          <each of="item.children" as="child">
+              <li>{{ child.name }}</li>
+          </each>
+        </ul>
+      </each>
+    </ul>
+  </recursive-template>
 
   <button id="push">Push</button>
   <button id="pop">Pop</button>
@@ -80,43 +93,72 @@
   // Renderer für <if> und <each>
   // -----------------------------
 
-function expandEachTag(eachElement, model, context = {}) {
-  const arrayName = eachElement.getAttribute('of');   // z.B. "items" oder "item.children"
-  const asName = eachElement.getAttribute('as') || 'item'; // Standardname "item"
+// --- Hilfsfunktionen ---
 
-  // Array auswerten (Pfad im Kontext/Model auflösen)
-  const items = resolvePath(arrayName, model, context) || [];
-  const results = [];
-
-  items.forEach(item => {
-    const newContext = { ...context, [asName]: item }; // Kontext erweitern
-    const children = expandChildren(eachElement, model, newContext);
-    results.push(...children);
+function interpolateText(template, model, context) {
+  return template.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => {
+    const value = resolvePath(key, model, context);
+    return value !== undefined ? value : "";
   });
+}
 
-  return results;
+function interpolateAttributes(node, model, context) {
+  for (const attr of Array.from(node.attributes)) {
+    if (!attr.name.match(/^data-template/)) {
+      const key = "template" + attr.name;
+      const tplValue = node.dataset[key] || attr.value;
+      if (/\{\{.*?\}\}/.test(tplValue)) {
+        node.dataset[key] = tplValue; // Original speichern
+        node.setAttribute(attr.name, interpolateText(tplValue, model, context));
+      }
+    }
+  }
+}
+
+function applyInterpolations(node, model, context) {
+  const templateText = node.dataset.templateInnerText || getDirectInnerText(node);
+  if (templateText && /\{\{.*?\}\}/.test(templateText)) {
+    node.dataset.templateInnerText = templateText;
+    node.innerText = interpolateText(templateText, model, context);
+  }
+  interpolateAttributes(node, model, context);
+}
+
+// --- Template-Expansion ---
+
+function expandEachTag(eachElement, model, context = {}) {
+  const arrayName = eachElement.getAttribute("of"); // z.B. "items" oder "item.children"
+  const asName = eachElement.getAttribute("as") || "item";
+
+  const items = resolvePath(arrayName, model, context) || [];
+  return items.flatMap(item => {
+    const newContext = { ...context, [asName]: item };
+    return expandChildren(eachElement, model, newContext);
+  });
 }
 
 function expandTemplate(templateElement, model, context = {}) {
-  if (templateElement.tagName === 'EACH') {
+  if (templateElement.tagName === "EACH") {
     return expandEachTag(templateElement, model, context);
   }
 
-  // normales DOM-Element erzeugen
   const newEl = document.createElement(templateElement.tagName);
-  newEl.dataset.cloned = true;
+  newEl.dataset.cloned = "true";
 
-  // direkten Text des Template-Elements holen und Platzhalter ersetzen
+  // Text + Attribute interpolieren
   const directInnerText = getDirectInnerText(templateElement);
   if (directInnerText) {
-    newEl.innerText = directInnerText.replace(
-      /\{\{\s*([\w.-]+)\s*\}\}/g,
-      (_, key) => {
-        const value = resolvePath(key, model, context);
-        return value !== undefined ? value : "";
-      }
-    );
+    newEl.innerText = directInnerText; // erstmal setzen
+    newEl.dataset.templateInnerText = directInnerText; // Original sichern
   }
+
+  // Attribute kopieren
+  for (const attr of Array.from(templateElement.attributes)) {
+    newEl.setAttribute(attr.name, attr.value);
+  }
+
+  // Text + Attribute interpolieren
+  applyInterpolations(newEl, model, context);
 
   // Kinder expandieren
   const children = expandChildren(templateElement, model, context);
@@ -126,67 +168,55 @@ function expandTemplate(templateElement, model, context = {}) {
 }
 
 function expandChildren(parentTemplate, model, context = {}) {
-  const results = [];
-  const childTemplates = parentTemplate.querySelectorAll(':scope > *');
-
-  childTemplates.forEach(childTemplate => {
-    const expanded = expandTemplate(childTemplate, model, context);
-    results.push(...expanded);
-  });
-
-  return results;
+  const childTemplates = parentTemplate.querySelectorAll(":scope > *");
+  return Array.from(childTemplates).flatMap(child =>
+    expandTemplate(child, model, context)
+  );
 }
 
-function render(root, model) {
-  const rootChildren = root.querySelectorAll(':scope > *');
+// --- Rendering ---
+
+function render(root, model, context = {}) {
+  const rootChildren = root.querySelectorAll(":scope > *");
 
   rootChildren.forEach(child => {
     const parent = child.parentNode;
 
-    if (child.tagName === 'EACH') {
-      const oldClonedElements = parent.querySelectorAll('[data-cloned="true"]');
-      oldClonedElements.forEach(oCE => oCE.remove());
-
-      const expanded = expandEachTag(child, model);
-
-      expanded.forEach(el => parent.insertBefore(el, child));
-      child.style.display = 'none';
-    } else if (child.tagName === 'IF') {
-      const testExpr = child.getAttribute('test');
-      const value = resolvePath(testExpr, model, {});
-
-      // Beim ersten Mal die Kinder als Template sichern
-      if (!child.dataset.ifTemplateSaved) {
-        child.dataset.ifTemplateSaved = "true";
-        child.dataset.ifTemplateHTML = child.innerHTML;
+    switch (child.tagName) {
+      case "EACH": {
+        parent.querySelectorAll('[data-cloned="true"]').forEach(oCE => oCE.remove());
+        const expanded = expandEachTag(child, model, context);
+        expanded.forEach(el => parent.insertBefore(el, child));
+        child.style.display = "none";
+        break;
       }
 
-      // Vorherige gerenderte Kinder entfernen
-      child.innerHTML = "";
+      case "IF": {
+        const testExpr = child.getAttribute("test");
+        const value = resolvePath(testExpr, model, context);
 
-      if (value) {
-        child.innerHTML = child.dataset.ifTemplateHTML;
-        render(child, model); // rekursiv rendern
-      }
-    } else {
-      // Prüfen: hat dieses Element {{ ... }} im direkten Text oder Attributen?
-      const directInnerText = child.dataset.templateInnerText || getDirectInnerText(child);
-      const hasInterpolation =
-        (directInnerText && /\{\{.*?\}\}/.test(directInnerText)) ||
-        Array.from(child.attributes).some(attr => /\{\{.*?\}\}/.test(attr.value));
+        // Node-Templates einmalig speichern
+        if (!child._ifTemplateNodes) {
+          child._ifTemplateNodes = Array.from(child.childNodes).map(n => n.cloneNode(true));
+        }
 
-      if (hasInterpolation) {
-        child.dataset.templateInnerText = directInnerText
-        child.innerText = directInnerText.replace(
-          /\{\{\s*([\w.-]+)\s*\}\}/g,
-          (_, key) => {
-            const value = resolvePath(key, model, {});
-            return value !== undefined ? value : "";
-          }
-        );
+        // Aktuelle Kinder entfernen
+        while (child.firstChild) child.removeChild(child.firstChild);
+
+        if (value) {
+          // Node-Templates wieder einfügen (Klon)
+          child._ifTemplateNodes.forEach(n => child.appendChild(n.cloneNode(true)));
+
+          // Rekursiv rendern
+          render(child, model, context);
+        }
+        break;
       }
 
-      render(child, model);
+      default: {
+        applyInterpolations(child, model, context);
+        render(child, model, context); // rekursiv
+      }
     }
   });
 }
@@ -206,6 +236,7 @@ function resolvePath(path, model, context) {
   const headlineModel = reactive({
     showCondTitle: true,
     showCondTitle2: true,
+    headlineBackground: 'yellow',
     name: 'Tobias'
   }, () => render(document.getElementById('headline'), headlineModel))
 
@@ -214,7 +245,8 @@ function resolvePath(path, model, context) {
       { name: 'Alice', age: 25, children: [ { name: 'Alice_1', age: 10, children: [ { name: 'Alice_1_1', age: 5 } ] } ] },
       { name: 'Bob', age: 30 },
       { name: 'Charlie', age: 20, children: [ { name: 'Charlie_1', age: 5 } ] }
-    ]
+    ],
+    liBackground: 'yellow'
   }, () => render(document.getElementById('main'), mainModel))
 
   // -----------------------------
