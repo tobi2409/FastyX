@@ -19,7 +19,7 @@ class TestComponent extends HTMLElement {
         const color = this.getAttribute('color') || 'lightblue';
 
         this.innerHTML = `
-            <div data-grid="true">
+            <div data-layout="default">
                 <div data-align="top" style="background:${color}">${title}</div>
                 <div data-align="left">Links</div>
                 <div data-align="bottom">Unten</div>

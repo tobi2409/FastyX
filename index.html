@@ -1,16 +1,46 @@
 <!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Template Engine Demo</title>
+  <link rel="stylesheet" href="default-layout.css">
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 1rem;
+    }
+    button {
+      margin: 0.5rem 0;
+      padding: 0.3rem 0.8rem;
+      cursor: pointer;
+    }
+    .item {
+      padding: 0.5rem;
+      margin: 0.3rem 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body data-layout="default">
+  <div data-align="top">
+    <h1>Items-Demo mit Template Engine</h1>
+    <button id="addItem">Neues Item hinzufügen</button>
+  </div>
 
-<html>
-    <head>
-        <link rel="stylesheet" href="layout.css">
-        <script src="test.js" defer></script>
-    </head>
+  <div data-align="client" id="templateRoot">
+    <each of="items" as="item">
+      <div class="item">
+        <if test="item.show">
+          <span>{{ item.name }} ({{ item.age }} Jahre)</span>
+        </if>
+        <button data-action="toggle">Toggle Sichtbarkeit</button>
+      </div>
+    </each>
+  </div>
 
-    <body>
-        <test-component title="Hallo Welt" color="lightgreen"></test-component>
-        <test-component title="Anderer Titel" color="salmon"></test-component>
-
-        <script src="index.js"></script>
-    </body>
-
+  <script src="reactive.js"></script>
+  <script src="template-engine.js"></script>
+  <script src="app.js"></script>
+</body>
 </html>

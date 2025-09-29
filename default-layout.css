@@ -1,20 +1,8 @@
   /* Grid-Container */
-  [data-grid="true"] {
+  [data-layout="default"] {
     display: grid;
     grid-template-rows: auto 1fr auto; /* top / client / bottom */
     grid-template-columns: auto 1fr auto; /* left / client / right */
-    height: 300px; /* Beispielhöhe */
-    width: 500px;  /* Beispielbreite */
-    gap: 5px;
-    border: 2px solid #333;
-    position: relative;
-  }
-
-  /* Default für alle Kinder */
-  [data-grid="true"] > [data-align] {
-    background: #f0f0f0;
-    padding: 10px;
-    text-align: center;
   }
 
   /* Aligns */

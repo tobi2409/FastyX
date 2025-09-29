@@ -10,6 +10,7 @@
     button { margin-top: 1rem; padding: 0.5rem 1rem; }
   </style>
 
+  <script src="reactive.js"></script>
   <script src="template-engine.js"></script>
 </head>
 <body>
@@ -33,24 +34,35 @@
   <!-- EACH-Direktive -->
   <ul>
     <each of="items" as="item">
-      <li style="background-color: {{ liBackground }}">{{ item.name }} ({{ item.age }} Jahre)</li>
-      <ul>
-        <div>TEST</div>
-        <each of="item.children" as="child">
-            <li>{{ child.name }}</li>
-        </each>
-      </ul>
+      <if test="item.isYoung">
+        <li style="background-color: {{ liBackground }}">{{ item.name }} ({{ item.age }} Jahre)</li>
+        <ul>
+          <div>TEST</div>
+          <each of="item.children" as="child">
+              <li onclick="alert('test')">{{ child.name }}</li>
+          </each>
+        </ul>
+      </if>
     </each>
   </ul>
 
-  <!--<recursive-template name="rec1" of="items">
+  <p>ABSATZ</p>
+
+  <recursive-template name="rec1" of="items">
     <ul>
-      <each of="{{ #rec1.of# }}" as="item">
-        <li style="background-color: {{ liBackground }}">{{ item.name }} ({{ item.age }} Jahre)</li>
-        <recursive-template use="rec1" of="item.children"></recursive-template>
+      <each of-rec="rec1" as="item">
+        <li onclick="alert('test')" style="background-color: {{ liBackground }}">
+          {{ item.name }} ({{ item.age }} Jahre)
+        
+          <recursive-template use="rec1" of="item.children"></recursive-template>
+        </li>
       </each>
     </ul>
-  </recursive-template>-->
+  </recursive-template>
+
+  <p>ABSATZ</p>
+
+  <recursive-template use="rec1" of="items"></recursive-template>
 
   <button id="push">Push</button>
   <button id="pop">Pop</button>
@@ -75,6 +87,12 @@
     ],
     liBackground: 'yellow'
   }, () => render(document.getElementById('main'), mainModel))
+
+  mainModel.items.forEach(e => {
+    if (e.age <= 25) {
+      e.isYoung = true
+    }
+  });
 
   // -----------------------------
   // Initiales Rendering
